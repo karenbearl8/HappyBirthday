@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "https://esm.sh/react@18.3.1";
+import React, { useEffect, useMemo, useRef, useState } from "https://esm.sh/react@18.3.1";
 import { createRoot } from "https://esm.sh/react-dom@18.3.1/client";
 import { motion, useScroll, useTransform, AnimatePresence } from "https://esm.sh/framer-motion@11.11.9?bundle";
 import htm from "https://esm.sh/htm@3.1.1";
@@ -45,7 +45,7 @@ function randomHoldMs() {
   return INTRO_HOLD_MIN_MS + Math.random() * (INTRO_HOLD_MAX_MS - INTRO_HOLD_MIN_MS);
 }
 
-/** Same track as open.spotify.com/embed/track/5TH7TT8Aej6dybwQFGipWi (~30% loudness is not enforceable in-page; see BackgroundSpotify). */
+/** Same track as open.spotify.com/embed/track/5TH7TT8Aej6dybwQFGipWi — hidden embed; browser may still block autoplay. */
 const SPOTIFY_BG_TRACK_URI = "spotify:track:5TH7TT8Aej6dybwQFGipWi";
 
 function initBackgroundSpotifyOnce() {
@@ -54,7 +54,7 @@ function initBackgroundSpotifyOnce() {
 
   const host = document.createElement("div");
   host.style.cssText =
-    "position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;pointer-events:none;z-index:0;";
+    "position:fixed;left:0;top:0;width:0;height:0;opacity:0;overflow:hidden;clip:rect(0,0,0,0);pointer-events:none;z-index:-1;border:0;margin:0;padding:0;";
   host.setAttribute("aria-hidden", "true");
   document.body.appendChild(host);
 
@@ -99,44 +99,6 @@ function initBackgroundSpotifyOnce() {
     s.dataset.spotifyBgApi = "1";
     document.body.appendChild(s);
   }
-}
-
-function BackgroundSpotify({ showIntro }) {
-  const showIntroRef = useRef(showIntro);
-  showIntroRef.current = showIntro;
-
-  const tryPlay = useCallback(() => {
-    window.__bgSpotifyTryPlay?.();
-  }, []);
-
-  useEffect(() => {
-    initBackgroundSpotifyOnce();
-  }, []);
-
-  useEffect(() => {
-    const onReady = () => {
-      if (!showIntroRef.current) tryPlay();
-    };
-    window.addEventListener("bg-spotify-ready", onReady);
-    if (window.__bgSpotifyReady && !showIntroRef.current) tryPlay();
-    return () => window.removeEventListener("bg-spotify-ready", onReady);
-  }, [tryPlay]);
-
-  useEffect(() => {
-    if (!showIntro) {
-      const t = window.setTimeout(tryPlay, 700);
-      return () => window.clearTimeout(t);
-    }
-    return undefined;
-  }, [showIntro, tryPlay]);
-
-  useEffect(() => {
-    const kick = () => tryPlay();
-    document.addEventListener("pointerdown", kick, { capture: true });
-    return () => document.removeEventListener("pointerdown", kick, { capture: true });
-  }, [tryPlay]);
-
-  return null;
 }
 
 function IntroVisual({ visual }) {
@@ -741,10 +703,11 @@ function PhotoCluster({ memory, scrollYProgress, laneIndex, laneCum }) {
   `;
 }
 
-function MemoryLaneSection() {
+function MemoryLaneSection({ introCleared }) {
   const sectionRef = useRef(null);
   const stripPanelCount = MEMORY_STRIP_PANEL_COUNT;
   const sectionHeight = useMemo(() => `${stripPanelCount * 100}vh`, [stripPanelCount]);
+  const musicStartedRef = useRef(false);
 
   const gapWeights = useMemo(() => buildStripeGapWeights(stripPanelCount), [stripPanelCount]);
   const laneCum = useMemo(() => gapScrollCumulative(gapWeights), [gapWeights]);
@@ -755,6 +718,55 @@ function MemoryLaneSection() {
   });
 
   const laneX = useTransform(scrollYProgress, (p) => `${-progressToLaneOffset(p, laneCum) * 100}%`);
+
+  useEffect(() => {
+    initBackgroundSpotifyOnce();
+  }, []);
+
+  useEffect(() => {
+    if (!introCleared) return undefined;
+
+    const tryStartHiddenSpotify = () => {
+      if (musicStartedRef.current) return;
+      musicStartedRef.current = true;
+      const run = () => {
+        try {
+          const p = window.__bgSpotifyTryPlay?.();
+          if (p && typeof p.catch === "function") p.catch(() => {});
+        } catch (_) {
+          /* ignore */
+        }
+      };
+      if (window.__bgSpotifyReady) run();
+      else window.addEventListener("bg-spotify-ready", run, { once: true });
+    };
+
+    const onScrollProgress = (v) => {
+      if (musicStartedRef.current) return;
+      if (v > 0.0004) tryStartHiddenSpotify();
+    };
+    onScrollProgress(scrollYProgress.get());
+    const unsubScroll = scrollYProgress.on("change", onScrollProgress);
+
+    const el = sectionRef.current;
+    let io = null;
+    if (el) {
+      io = new IntersectionObserver(
+        (entries) => {
+          for (const e of entries) {
+            if (e.isIntersecting && e.intersectionRatio > 0.008) tryStartHiddenSpotify();
+          }
+        },
+        { threshold: [0, 0.01, 0.05] }
+      );
+      io.observe(el);
+    }
+
+    return () => {
+      unsubScroll();
+      if (io && el) io.disconnect();
+    };
+  }, [introCleared, scrollYProgress]);
 
   return html`
     <section ref=${sectionRef} style=${{ height: sectionHeight }} className="relative bg-paper">
@@ -822,7 +834,6 @@ function App() {
 
   return html`
     <div className="relative">
-      <${BackgroundSpotify} showIntro=${showIntro} />
       <${motion.section}
         animate=${{ opacity: showIntro ? 1 : 0 }}
         transition=${{ duration: 1.1, ease: "easeInOut" }}
@@ -863,7 +874,7 @@ function App() {
           <p className="font-handwritten m-0 text-2xl text-[#9b7f61]">Memory Lane</p>
           <p className="font-chinese-handwrite m-0 text-3xl text-[#8b6a52]" lang="zh-Hant">甄宇良</p>
         </header>
-        <${MemoryLaneSection} />
+        <${MemoryLaneSection} introCleared=${!showIntro} />
       </main>
     </div>
   `;
