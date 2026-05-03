@@ -1,0 +1,79 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Memory Lane</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              paper: "#f7f2e8",
+              sand: "#efe5d4",
+              ink: "#5a4b38",
+              muted: "#8a7a63",
+            },
+            boxShadow: {
+              floaty: "0 18px 45px rgba(122, 100, 73, 0.18)",
+              soft: "0 8px 22px rgba(122, 100, 73, 0.14)",
+            },
+          },
+        },
+      };
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&display=swap" rel="stylesheet" />
+    <style>
+      @font-face {
+        font-family: "Kiddosy";
+        src: url("KiddosyfreeRegular-GOEag.otf") format("opentype");
+        font-weight: 400;
+        font-style: normal;
+      }
+      @font-face {
+        font-family: "QingSongHandwrite";
+        src: url("清松手寫體9p.ttf") format("truetype");
+        font-weight: 400;
+        font-style: normal;
+      }
+      html,
+      body {
+        margin: 0;
+        background: #f7f2e8;
+        color: #5a4b38;
+      }
+      .font-serif-editorial {
+        font-family: "Cormorant Garamond", Georgia, serif;
+      }
+      .font-handwritten {
+        font-family: "Kiddosy", "Comic Sans MS", cursive;
+      }
+      .font-chinese-handwrite {
+        font-family: "QingSongHandwrite", "Microsoft JhengHei", "PingFang TC", sans-serif;
+      }
+      :lang(zh),
+      [lang="zh"],
+      [lang="zh-TW"],
+      [lang="zh-Hant"] {
+        font-family: "QingSongHandwrite", "Microsoft JhengHei", "PingFang TC", sans-serif;
+      }
+      .grain::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background-image: radial-gradient(rgba(255, 255, 255, 0.16) 0.8px, transparent 0.8px);
+        background-size: 3px 3px;
+        opacity: 0.22;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./memory-lane.js"></script>
+  </body>
+</html>
